@@ -1,0 +1,71 @@
+:root {
+  --bg: #0f1117; --panel: #171b26; --panel2: #1e2433; --line: #2a3247;
+  --text: #e6e9f2; --dim: #9aa3b8; --acc: #6ea8fe; --good: #5fd68a;
+  --warn: #ffb86b; --bad: #ff7b8a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; gap: 12px; align-items: center; padding: 12px 16px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10; }
+.logo { color: var(--text); text-decoration: none; font-weight: 800;
+  letter-spacing: 1px; white-space: nowrap; }
+.logo span { color: var(--acc); }
+#search { flex: 1; max-width: 560px; padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--text); }
+nav#tabs { display: flex; gap: 4px; padding: 8px 12px; overflow-x: auto;
+  background: var(--panel); border-bottom: 1px solid var(--line); }
+nav#tabs a { color: var(--dim); text-decoration: none; padding: 7px 13px;
+  border-radius: 8px; white-space: nowrap; }
+nav#tabs a:hover { background: var(--panel2); color: var(--text); }
+nav#tabs a.active { background: var(--acc); color: #0b1020; font-weight: 700; }
+main { max-width: 1060px; margin: 0 auto; padding: 20px 16px 60px; }
+footer { text-align: center; color: var(--dim); padding: 24px; font-size: 13px; }
+
+.card { background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+.card h1 { margin: 0 0 4px; font-size: 26px; }
+.card h2 { margin: 0 0 10px; font-size: 19px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.cell { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; }
+.cell a.title, a.title { color: var(--text); text-decoration: none; font-weight: 650; }
+.cell a.title:hover, a.title:hover { color: var(--acc); }
+.pill { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 20px;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--dim);
+  margin: 2px 4px 2px 0; }
+a.pill { color: var(--acc); text-decoration: none; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); }
+th { color: var(--dim); font-weight: 600; font-size: 13px; }
+tr:hover td { background: var(--panel2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+a { color: var(--acc); }
+.dim { color: var(--dim); }
+.good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.badge-on { color: var(--good); font-weight: 700; }
+.badge-off { color: var(--dim); }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar select, .toolbar input { background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.stat { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
+.stat div { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
+.stat b { display: block; font-size: 18px; }
+.stat span { color: var(--dim); font-size: 12px; }
+h3.sec { margin: 18px 0 6px; font-size: 15px; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 1px; }
+ul.links { list-style: none; padding: 0; margin: 6px 0; }
+ul.links li { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.counts a { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 16px; text-decoration: none; color: var(--text); }
+.counts a:hover { border-color: var(--acc); }
+.counts b { display: block; font-size: 22px; }
+.counts span { color: var(--dim); font-size: 13px; }
+.rarity-Common { color: #c8ccd6; } .rarity-Uncommon { color: #5fd68a; }
+.rarity-Rare { color: #6ea8fe; } .rarity-Legendary { color: #c792ea; }
+.rarity-Mythical { color: #ff6e9e; } .rarity-Exclusive { color: #ffb86b; }
+.rarity-Secret { color: #ff5252; } .rarity-Godly { color: #ffd166; }
+.rarity-Celestial { color: #7df9ff; } .rarity-Sloppy { color: #b28dff; }
+.rarity-Hero { color: #fff; }
