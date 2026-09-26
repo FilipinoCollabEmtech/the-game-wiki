@@ -304,37 +304,70 @@ function buffScore(name) {
 function vBuilder() {
   setActive("builder");
   const team = getTeam();
-  const opts = Object.keys(D.towers).sort().map(n => `<option value="${esc(n)}">`).join("");
   const cards = team.map((n, i) => {
     const t = D.towers[n], roles = towerRoles(n);
-    return `<div class="cell"><b>${link("tower", n)}</b>
-      <button data-rm="${i}" style="float:right">✕</button><br>
+    return `<div class="cell slot"><span class="slotnum">${i + 1}</span>
+      <button class="rm" data-rm="${i}" title="Remove">✕</button>
+      <b>${link("tower", n)}</b><br>
       ${roles.map(r => `<span class="pill">${r}</span>`).join("")}
       <br><span class="dim">⚔️ ${esc(t.type || "Special")}</span>
       <br><span class="dim">Max DPS ${dps(t.max.damage, t.max.cooldown)} · $${fmt(t.place)}</span></div>`;
   }).join("");
   return `<div class="card"><h1>Team Builder</h1>
     <p class="dim">Pick up to ${TEAM_MAX} towers (match loadout). Compared at <b>maxed</b> stats. Hit Calculate for upgrades.</p>
-    <div class="toolbar">
-      <input id="bAdd" list="bList" placeholder="Type a tower name..." style="flex:1;min-width:200px">
-      <datalist id="bList">${opts}</datalist>
-      <button id="bAddBtn">Add</button>
-      <button id="bClear">Clear</button>
+    <div class="ac-wrap">
+      <input id="bAdd" placeholder="Type a tower name..." autocomplete="off" style="flex:1;min-width:200px">
+      <div id="bDrop" class="ac-drop"></div>
+      <button id="bAddBtn" class="btn">Add</button>
+      <button id="bClear" class="btn ghost">Clear</button>
     </div>
-    <div class="grid">${cards || "<p class='dim'>No towers yet — add your current build above.</p>"}</div>
-    <div class="toolbar" style="margin-top:12px"><button id="bCalc" ${team.length ? "" : "disabled"}>Calculate replacements</button></div>
+    <div class="grid" id="bTeam">${cards || "<p class='dim'>No towers yet — add your current build above.</p>"}</div>
+    <div class="toolbar" style="margin-top:12px"><button id="bCalc" class="btn primary" ${team.length ? "" : "disabled"}>Calculate replacements</button></div>
     <div id="bOut"></div></div>`;
 }
 function paintBuilder() {
   const team = getTeam();
-  const add = () => {
-    const v = document.getElementById("bAdd").value.trim();
-    if (D.towers[v] && !team.includes(v) && team.length < TEAM_MAX) {
-      team.push(v); setTeam(team); route();
-    }
+  const input = document.getElementById("bAdd"), drop = document.getElementById("bDrop");
+  let matches = [], sel = -1;
+  const close = () => { drop.style.display = "none"; sel = -1; };
+  const renderDrop = () => {
+    if (!matches.length) { close(); return; }
+    drop.innerHTML = matches.map((n, i) => {
+      const t = D.towers[n];
+      return `<div class="ac-item${i === sel ? " sel" : ""}" data-pick="${esc(n)}">
+        <b>${esc(n)}</b> <span class="rarity-${esc(t.rarity)}">${esc(t.rarity)}</span>
+        <span class="dim">· ${dps(t.max.damage, t.max.cooldown)} DPS</span></div>`;
+    }).join("");
+    drop.style.display = "block";
+    drop.querySelectorAll("[data-pick]").forEach(el => {
+      el.onmousedown = e => { e.preventDefault(); addName(el.getAttribute("data-pick")); };
+    });
   };
-  document.getElementById("bAddBtn").onclick = add;
-  document.getElementById("bAdd").onkeydown = e => { if (e.key === "Enter") add(); };
+  const search = () => {
+    const q = input.value.trim().toLowerCase();
+    matches = q ? Object.keys(D.towers).filter(n => !team.includes(n) && n.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const ai = a.toLowerCase().indexOf(q), bi = b.toLowerCase().indexOf(q);
+        return ai - bi || a.localeCompare(b);
+      }).slice(0, 8) : [];
+    sel = matches.length ? 0 : -1;
+    renderDrop();
+  };
+  const addName = name => {
+    if (D.towers[name] && !team.includes(name) && team.length < TEAM_MAX) {
+      team.push(name); setTeam(team); route();
+    } else if (D.towers[name]) { input.value = ""; close(); }
+  };
+  input.oninput = search;
+  input.onfocus = search;
+  input.onblur = () => setTimeout(close, 120);
+  input.onkeydown = e => {
+    if (e.key === "ArrowDown" && matches.length) { e.preventDefault(); sel = (sel + 1) % matches.length; renderDrop(); }
+    else if (e.key === "ArrowUp" && matches.length) { e.preventDefault(); sel = (sel - 1 + matches.length) % matches.length; renderDrop(); }
+    else if (e.key === "Enter") { e.preventDefault(); addName(sel >= 0 && matches[sel] ? matches[sel] : input.value.trim()); }
+    else if (e.key === "Escape") close();
+  };
+  document.getElementById("bAddBtn").onclick = () => addName(input.value.trim());
   document.getElementById("bClear").onclick = () => { setTeam([]); route(); };
   document.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
     team.splice(+b.getAttribute("data-rm"), 1); setTeam(team); route();

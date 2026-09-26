@@ -47,8 +47,32 @@ a { color: var(--acc); }
 .badge-on { color: var(--good); font-weight: 700; }
 .badge-off { color: var(--dim); }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.toolbar select, .toolbar input { background: var(--panel2); color: var(--text);
+.toolbar select, .toolbar input, .ac-wrap input { background: var(--panel2); color: var(--text);
   border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+/* buttons */
+.btn { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; }
+.btn:hover { border-color: var(--acc); }
+.btn.primary { background: var(--acc); border-color: var(--acc); color: #0b1020; font-weight: 700; }
+.btn.primary:hover { filter: brightness(1.1); }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .4; cursor: default; }
+/* autocomplete */
+.ac-wrap { display: flex; gap: 8px; margin-bottom: 12px; position: relative; flex-wrap: wrap; }
+.ac-wrap input { flex: 1; min-width: 200px; padding: 10px 12px; font-size: 15px; }
+.ac-drop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+  background: var(--panel2); border: 1px solid var(--acc); border-radius: 0 0 10px 10px;
+  max-height: 320px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.5); }
+.ac-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.sel { background: #2a3a5f; }
+/* team slots */
+.cell.slot { position: relative; padding-top: 12px; }
+.slotnum { position: absolute; top: -9px; left: 10px; background: var(--acc); color: #0b1020;
+  font-size: 12px; font-weight: 800; border-radius: 12px; padding: 1px 9px; }
+.rm { float: right; background: transparent; border: 1px solid var(--line); color: var(--dim);
+  border-radius: 6px; cursor: pointer; padding: 1px 7px; }
+.rm:hover { color: var(--bad); border-color: var(--bad); }
 .stat { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
 .stat div { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
 .stat b { display: block; font-size: 18px; }
