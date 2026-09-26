@@ -73,6 +73,11 @@ a { color: var(--acc); }
 .rm { float: right; background: transparent; border: 1px solid var(--line); color: var(--dim);
   border-radius: 6px; cursor: pointer; padding: 1px 7px; }
 .rm:hover { color: var(--bad); border-color: var(--bad); }
+/* enchant dropdown in suggestions */
+details.ench { margin: 6px 0 2px 18px; }
+details.ench summary { cursor: pointer; color: var(--acc); font-size: 13px; display: inline-block; }
+details.ench summary:hover { text-decoration: underline; }
+details.ench table { margin-top: 6px; max-width: 520px; }
 .stat { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
 .stat div { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
 .stat b { display: block; font-size: 18px; }

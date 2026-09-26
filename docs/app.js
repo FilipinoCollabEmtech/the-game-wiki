@@ -62,6 +62,36 @@ function maxBuffs(name) {
   return b;
 }
 const maxDPSof = n => { const t = D.towers[n]; return (t && t.max.damage != null && +t.max.cooldown > 0) ? +t.max.damage / +t.max.cooldown : 0; };
+/* enchants (GameController.lua:266-345): one applies, Void > Shiny > Silver.
+   stat x (1+bonus); cooldown negative = reduction. Boost-custom towers:
+   only Range takes stat bonus, Custom aura value x (1+Boost) instead. */
+const ENCH = {
+  Normal: { d: 0, r: 0, c: 0, b: 0 },
+  Silver: { d: 0.25, r: 0, c: 0, b: 0.10 },
+  Shiny:  { d: 0.20, r: 0.10, c: -0.10, b: 0.10 },
+  Void:   { d: 0.25, r: 0.25, c: -0.25, b: 0.15 },
+};
+const isBoostTower = n => { const t = D.towers[n]; return !!(t.custom && /boost/i.test(t.custom.text || "")); };
+function enchDPS(name, e) {
+  const t = D.towers[name];
+  if (t.max.damage == null || +t.max.cooldown <= 0) return null;
+  return t.max.damage * (1 + e.d) / (+t.max.cooldown * (1 + e.c));
+}
+function enchTable(name) {
+  const boost = isBoostTower(name);
+  const rows = Object.entries(ENCH).map(([k, e]) => {
+    if (boost) {
+      const b = D.towers[name].custom;
+      const base = b ? `${esc(String(b.base))} → ${esc(String(b.max))}` : "-";
+      return `<tr><td>${k}</td><td>aura ×${(1 + e.b).toFixed(2)}</td><td class="dim">${base}</td></tr>`;
+    }
+    const v = enchDPS(name, e);
+    return `<tr><td>${k}</td><td class="num"><b>${v == null ? "-" : (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1))}</b></td>
+      <td class="dim">dmg +${e.d * 100}% · rng +${e.r * 100}% · cd ${e.c <= 0 ? "" : "+"}${e.c * 100}%</td></tr>`;
+  }).join("");
+  return `<details class="ench"><summary>enchants ▾</summary><table>
+    <tr><th>Enchant</th><th class="num">${boost ? "Aura" : "Max DPS"}</th><th></th></tr>${rows}</table></details>`;
+}
 function firstSource(name) {
   const rel = D.relationships[name];
   if (!rel) return "-";
@@ -414,14 +444,25 @@ function calcTeam(team) {
     };
     if (roles.includes("DPS")) {
       const cur = maxDPSof(n);
-      h += sug("DPS", dpsRank, maxDPSof, cur, x => `${dps(D.towers[x].max.damage, D.towers[x].max.cooldown)} max DPS (+${Math.round((maxDPSof(x) / cur - 1) * 100)}%)`);
+      const better = dpsRank.filter(x => x !== n && maxDPSof(x) > cur).slice(0, 3);
+      if (!better.length) h += `<p>✅ Best in slot for <b>DPS</b>.</p>`;
+      else {
+        anyUp = true;
+        h += `<h3 class="sec">Better DPS</h3><ul class="links">` + better.map(x =>
+          `<li>${link("tower", x)} — ${dps(D.towers[x].max.damage, D.towers[x].max.cooldown)} max DPS (+${Math.round((maxDPSof(x) / cur - 1) * 100)}%) <span class="dim">(${esc(firstSource(x))})</span>${enchTable(x)}</li>`).join("") + "</ul>";
+      }
     }
     if (roles.includes("Buffer")) {
       const cur = buffScore(n);
-      h += sug("buffer", bufRank, buffScore, cur, x => {
-        const b = maxBuffs(x);
-        return `×${(buffScore(x)).toFixed(2)} combined (${b.DamageBuff ? "DMG×" + b.DamageBuff + " " : ""}${b.CooldownBuff !== 1 ? "CD×" + b.CooldownBuff + " " : ""}${b.RangeBuff ? "RNG×" + b.RangeBuff : ""})`;
-      });
+      const better = bufRank.filter(x => x !== n && buffScore(x) > cur).slice(0, 3);
+      if (!better.length) h += `<p>✅ Best in slot for <b>buffer</b>.</p>`;
+      else {
+        anyUp = true;
+        h += `<h3 class="sec">Better buffer</h3><ul class="links">` + better.map(x => {
+          const b = maxBuffs(x);
+          return `<li>${link("tower", x)} — ×${buffScore(x).toFixed(2)} combined (${b.DamageBuff ? "DMG×" + b.DamageBuff + " " : ""}${b.CooldownBuff !== 1 ? "CD×" + b.CooldownBuff + " " : ""}${b.RangeBuff ? "RNG×" + b.RangeBuff : ""}) <span class="dim">(${esc(firstSource(x))})</span>${enchTable(x)}</li>`;
+        }).join("") + "</ul>";
+      }
     }
     if (roles.includes("Farm")) {
       const cur = maxBuffs(n).FarmCash;
