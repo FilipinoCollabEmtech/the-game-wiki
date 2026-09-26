@@ -18,13 +18,62 @@ function obtainList(r) {
   const rel = D.relationships[r];
   if (!rel) return `<p class="dim">No sources recorded.</p>`;
   let h = "<ul class='links'>";
-  rel.crates.forEach(c => { h += `<li>🎰 ${link("crate", c.crate)} — <b>${pct(c.chance)}</b> ${c.enabled ? '<span class="badge-on">on sale</span>' : '<span class="badge-off">vaulted</span>'}</li>`; });
-  rel.chests.forEach(c => { h += `<li>🎁 ${link("chest", c.chest)} — <b>${pct(c.chance)}</b></li>`; });
-  rel.craftedBy.forEach(id => { const rec = D.recipes.find(r => r.id === id); h += `<li>🔨 Crafted — ${link("recipe", id, id + (rec ? ": " + rec.reward : ""))}</li>`; });
-  rel.merchants.forEach(m => { h += `<li>🛒 ${esc(m.merchant)} — ${fmt(m.price)}</li>`; });
-  rel.daily.forEach(d => { h += `<li>📅 Daily login day ${d.day} (x${d.amount})</li>`; });
-  if (rel.summon) h += `<li>🎲 Summon banner — Basic ${rel.summon.basic}% / Premium ${rel.summon.premium}% rarity odds</li>`;
-  return h + "</ul>";
+  let any = false;
+  const li = s => { any = true; h += `<li>${s}</li>`; };
+  rel.crates.forEach(c => li(`🎰 ${link("crate", c.crate)} — <b>${pct(c.chance)}</b> ${c.enabled ? '<span class="badge-on">on sale</span>' : '<span class="badge-off">vaulted</span>'}`));
+  rel.chests.forEach(c => li(`🎁 ${link("chest", c.chest)} — <b>${pct(c.chance)}</b>`));
+  rel.craftedBy.forEach(id => { const rec = D.recipes.find(r => r.id === id); li(`🔨 Crafted — ${link("recipe", id, id + (rec ? ": " + rec.reward : ""))}`); });
+  rel.merchants.forEach(m => li(`🛒 ${esc(m.merchant)} — ${fmt(m.price)} (event currency)`));
+  rel.daily.forEach(d => li(`📅 Daily login day ${d.day} (x${d.amount})`));
+  rel.seeds.forEach(s => li(`🌱 Grown from ${esc(s)} (garden)`));
+  if (rel.premiumSummon) li(`💎 Premium summon pool (gems banner)`);
+  if (rel.summon && rel.summon.basic) li(`🎲 Summon banner — Basic ${rel.summon.basic}% / Premium ${rel.summon.premium}% rarity odds`);
+  h += "</ul>";
+  if (!any) return `<p class="dim">No recorded source — likely event, mode-exclusive, or unreleased. Check patch notes.</p>`;
+  return h;
+}
+/* roles: Buffer / Farm / Spawner / DPS / Support */
+function towerRoles(name) {
+  const t = D.towers[name];
+  if (!t) return [];
+  const lv = t.levels || [];
+  const hasBuff = lv.some(s => s.DamageBuff || s.CooldownBuff || s.RangeBuff)
+    || (t.custom && /boost/i.test(t.custom.text || ""));
+  const hasFarm = lv.some(s => s.FarmCash != null)
+    || (t.custom && /farm/i.test(t.custom.text || ""));
+  const spawner = /spawner/i.test(t.type || "") || lv.some(s => s.Mob);
+  const hasDmg = t.base.damage != null && !(t.flags && t.flags.DamageEnabled === false);
+  const roles = [];
+  if (hasBuff) roles.push("Buffer");
+  if (hasFarm) roles.push("Farm");
+  if (spawner) roles.push("Spawner");
+  if (hasDmg) roles.push("DPS");
+  if (!roles.length) roles.push("Support");
+  return roles;
+}
+function maxBuffs(name) {
+  const b = { DamageBuff: 0, CooldownBuff: 1, RangeBuff: 0, FarmCash: 0 };
+  ((D.towers[name] || {}).levels || []).forEach(s => {
+    if (s.DamageBuff) b.DamageBuff = Math.max(b.DamageBuff, +s.DamageBuff);
+    if (s.CooldownBuff) b.CooldownBuff = Math.min(b.CooldownBuff, +s.CooldownBuff);
+    if (s.RangeBuff) b.RangeBuff = Math.max(b.RangeBuff, +s.RangeBuff);
+    if (s.FarmCash != null) b.FarmCash = Math.max(b.FarmCash, +s.FarmCash);
+  });
+  return b;
+}
+const maxDPSof = n => { const t = D.towers[n]; return (t && t.max.damage != null && +t.max.cooldown > 0) ? +t.max.damage / +t.max.cooldown : 0; };
+function firstSource(name) {
+  const rel = D.relationships[name];
+  if (!rel) return "-";
+  if (rel.crates.length) return `${rel.crates[0].crate} ${pct(rel.crates[0].chance)}`;
+  if (rel.chests.length) return `${rel.chests[0].chest} ${pct(rel.chests[0].chance)}`;
+  if (rel.craftedBy.length) return "craft: " + rel.craftedBy[0];
+  if (rel.merchants.length) return rel.merchants[0].merchant;
+  if (rel.daily.length) return "daily day " + rel.daily[0].day;
+  if (rel.seeds.length) return rel.seeds[0];
+  if (rel.premiumSummon) return "premium summon";
+  if (rel.summon && rel.summon.basic) return "summon";
+  return "unknown";
 }
 function towerRow(name) {
   const t = D.towers[name];
@@ -81,11 +130,17 @@ function vTower(name) {
   if (!t) return `<div class="card"><h1>Not found</h1><p>No tower named "${esc(name)}".</p></div>`;
   const c = t.custom ? `<p>✨ ${esc(t.custom.text)}: base ${esc(t.custom.base)} → max ${esc(t.custom.max)}</p>` : "";
   const flags = Object.keys(t.flags || {}).map(f => `<span class="pill">${esc(f)}=false</span>`).join("");
+  const roles = towerRoles(name).map(r => `<span class="pill">${r}</span>`).join("");
+  const mb = maxBuffs(name);
+  const buffLine = (mb.DamageBuff || mb.RangeBuff || mb.CooldownBuff !== 1 || mb.FarmCash) ?
+    `<p>🛡 Aura (maxed): ${mb.DamageBuff ? `DMG ×${mb.DamageBuff} ` : ""}${mb.CooldownBuff !== 1 ? `CD ×${mb.CooldownBuff} ` : ""}${mb.RangeBuff ? `RNG ×${mb.RangeBuff} ` : ""}${mb.FarmCash ? `Farm $${fmt(mb.FarmCash)}` : ""}</p>` : "";
   const lv = t.levels.map((s, i) => `<tr><td>Lvl ${i + 1}</td><td class="num">${fmt(t.upgradePrices[i] || 0)}</td><td class="num">${fmt(s.Damage)}</td><td class="num">${fmt(s.Range)}</td><td class="num">${s.Cooldown}</td><td>${esc(s.Mob || s.FarmCash != null ? (s.Mob || ("$" + fmt(s.FarmCash))) : "-")}</td></tr>`).join("");
   return `<div class="card"><h1>${esc(name)}</h1>
     <span class="pill rarity-${esc(t.rarity)}">${esc(t.rarity)}</span>
     <span class="pill">${esc(t.type || "-special")}</span>
-    ${t.cap != null ? `<span class="pill">max ${t.cap} placed</span>` : ""} ${flags}
+    ${roles}
+    ${t.cap != null ? `<span class="pill">max ${t.cap} placed</span>` : ""}
+    ${t.premium ? `<span class="pill">💎 premium pool</span>` : ""} ${flags}
     <div class="stat">
       <div><b>$${fmt(t.place)}</b><span>placement</span></div>
       <div><b>${fmt(t.base.damage)}</b><span>base dmg</span></div>
@@ -96,6 +151,10 @@ function vTower(name) {
       <div><b>${dps(t.max.damage, t.max.cooldown)}</b><span>max DPS</span></div>
       <div><b>$${fmt(t.upgradeCost)}</b><span>upgrade total</span></div>
     </div>${c}
+    <h3 class="sec">Skill</h3>
+    <p>⚔️ <b>${esc(t.type || "Special")}</b>${t.custom ? ` — ${esc(t.custom.text)} (${esc(String(t.custom.base))} → ${esc(String(t.custom.max))})` : ""}</p>
+    ${buffLine}
+    <p class="dim">No per-tower description text exists in the game configs — Type + aura values above are the full kit.</p>
     <h3 class="sec">Upgrades (${t.upgrades})</h3>
     <table><tr><th></th><th class="num">Cost</th><th class="num">Dmg</th><th class="num">Rng</th><th class="num">Cd</th><th>Extra</th></tr>${lv}</table>
     <h3 class="sec">How to get</h3>${obtainList(name)}</div>`;
@@ -118,8 +177,11 @@ function vCrate(name) {
   setActive("crates");
   const c = D.crates[name];
   if (!c) return `<div class="card"><h1>Not found</h1></div>`;
+  const src = (D.crateSources && D.crateSources[name]) || [];
   return `<div class="card"><h1>${esc(name)}</h1>
     <p>${c.enabled ? `<span class="badge-on">ON SALE</span> ${esc(c.price || "")}` : '<span class="badge-off">VAULTED</span>'}</p>
+    <h3 class="sec">How to get this crate</h3><ul class="links">
+    ${src.map(s => `<li>${esc(s)}</li>`).join("") || "<li class='dim'>—</li>"}</ul>
     <h3 class="sec">Drop table (base, luck ×1)</h3>${dropTable(c.drops)}</div>`;
 }
 function vChests() {
@@ -132,7 +194,11 @@ function vChest(name) {
   setActive("chests");
   const c = D.chests[name];
   if (!c) return `<div class="card"><h1>Not found</h1></div>`;
-  return `<div class="card"><h1>${esc(name)}</h1>${dropTable(c.drops)}</div>`;
+  const src = (D.chestSources && D.chestSources[name]) || [];
+  return `<div class="card"><h1>${esc(name)}</h1>
+    <h3 class="sec">How to get this chest</h3><ul class="links">
+    ${src.map(s => `<li>${esc(s)}</li>`).join("") || "<li class='dim'>—</li>"}</ul>
+    <h3 class="sec">Drop table (base, luck ×1)</h3>${dropTable(c.drops)}</div>`;
 }
 function vItems() {
   setActive("items");
@@ -150,7 +216,9 @@ function vItem(name) {
     <h3 class="sec">Dropped by (map wins)</h3><ul class="links">
     ${u.maps.map(m => `<li>${link("map", m.map)} — <b>${pct(m.chance)}</b></li>`).join("") || "<li class='dim'>—</li>"}</ul>
     <h3 class="sec">Used in</h3><ul class="links">
-    ${u.recipes.map(r => `<li>${r.amount}× in ${link("recipe", r.recipe, r.recipe + " → " + r.reward)}</li>`).join("") || "<li class='dim'>—</li>"}</ul></div>`;
+    ${u.recipes.map(r => `<li>${r.amount}× in ${link("recipe", r.recipe, r.recipe + " → " + r.reward)}</li>`).join("") || "<li class='dim'>—</li>"}</ul>
+    <h3 class="sec">Sold by merchants</h3><ul class="links">
+    ${(u.merchants || []).map(m => `<li>${esc(m.merchant)} — ${fmt(m.price)} (event currency)</li>`).join("") || "<li class='dim'>—</li>"}</ul></div>`;
 }
 function vMaps() {
   setActive("maps");
@@ -222,6 +290,120 @@ function vSearch(q) {
     sec("Recipes", D.recipes.filter(r => hit(r.id) || hit(r.reward)).map(r => r.id), "recipe");
 }
 
+/* ---------- team builder ---------- */
+const TEAM_KEY = "wiki-team-v1", TEAM_MAX = 6;
+function getTeam() {
+  try { const t = JSON.parse(localStorage.getItem(TEAM_KEY) || "[]"); return Array.isArray(t) ? t.filter(n => D.towers[n]).slice(0, TEAM_MAX) : []; }
+  catch (e) { return []; }
+}
+function setTeam(t) { try { localStorage.setItem(TEAM_KEY, JSON.stringify(t)); } catch (e) {} }
+function buffScore(name) {
+  const b = maxBuffs(name);
+  return (b.DamageBuff || 1) * (b.CooldownBuff ? 1 / b.CooldownBuff : 1) * (b.RangeBuff || 1);
+}
+function vBuilder() {
+  setActive("builder");
+  const team = getTeam();
+  const opts = Object.keys(D.towers).sort().map(n => `<option value="${esc(n)}">`).join("");
+  const cards = team.map((n, i) => {
+    const t = D.towers[n], roles = towerRoles(n);
+    return `<div class="cell"><b>${link("tower", n)}</b>
+      <button data-rm="${i}" style="float:right">✕</button><br>
+      ${roles.map(r => `<span class="pill">${r}</span>`).join("")}
+      <br><span class="dim">⚔️ ${esc(t.type || "Special")}</span>
+      <br><span class="dim">Max DPS ${dps(t.max.damage, t.max.cooldown)} · $${fmt(t.place)}</span></div>`;
+  }).join("");
+  return `<div class="card"><h1>Team Builder</h1>
+    <p class="dim">Pick up to ${TEAM_MAX} towers (match loadout). Compared at <b>maxed</b> stats. Hit Calculate for upgrades.</p>
+    <div class="toolbar">
+      <input id="bAdd" list="bList" placeholder="Type a tower name..." style="flex:1;min-width:200px">
+      <datalist id="bList">${opts}</datalist>
+      <button id="bAddBtn">Add</button>
+      <button id="bClear">Clear</button>
+    </div>
+    <div class="grid">${cards || "<p class='dim'>No towers yet — add your current build above.</p>"}</div>
+    <div class="toolbar" style="margin-top:12px"><button id="bCalc" ${team.length ? "" : "disabled"}>Calculate replacements</button></div>
+    <div id="bOut"></div></div>`;
+}
+function paintBuilder() {
+  const team = getTeam();
+  const add = () => {
+    const v = document.getElementById("bAdd").value.trim();
+    if (D.towers[v] && !team.includes(v) && team.length < TEAM_MAX) {
+      team.push(v); setTeam(team); route();
+    }
+  };
+  document.getElementById("bAddBtn").onclick = add;
+  document.getElementById("bAdd").onkeydown = e => { if (e.key === "Enter") add(); };
+  document.getElementById("bClear").onclick = () => { setTeam([]); route(); };
+  document.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
+    team.splice(+b.getAttribute("data-rm"), 1); setTeam(team); route();
+  });
+  const calc = document.getElementById("bCalc");
+  if (calc) calc.onclick = () => {
+    document.getElementById("bOut").innerHTML = calcTeam(team);
+  };
+}
+function calcTeam(team) {
+  const byRole = r => Object.keys(D.towers).filter(n => towerRoles(n).includes(r));
+  const dpsRank = byRole("DPS").sort((a, b) => maxDPSof(b) - maxDPSof(a));
+  const farmRank = Object.keys(D.towers).filter(n => maxBuffs(n).FarmCash > 0).sort((a, b) => maxBuffs(b).FarmCash - maxBuffs(a).FarmCash);
+  const bufRank = byRole("Buffer").sort((a, b) => buffScore(b) - buffScore(a));
+  // team summary
+  const totDPS = team.reduce((s, n) => s + maxDPSof(n), 0);
+  const rolesCovered = [...new Set(team.flatMap(towerRoles))];
+  const chan = { dmg: [], cd: [], rng: [] };
+  team.forEach(n => {
+    const b = maxBuffs(n);
+    if (b.DamageBuff > 1) chan.dmg.push(`${n} ×${b.DamageBuff}`);
+    if (b.CooldownBuff < 1) chan.cd.push(`${n} ×${b.CooldownBuff}`);
+    if (b.RangeBuff > 1) chan.rng.push(`${n} ×${b.RangeBuff}`);
+  });
+  const farm = team.reduce((s, n) => s + maxBuffs(n).FarmCash, 0);
+  let h = `<div class="card"><h2>Team score (maxed)</h2><div class="stat">
+    <div><b>${totDPS >= 100 ? Math.round(totDPS).toLocaleString() : totDPS.toFixed(1)}</b><span>combined max DPS</span></div>
+    <div><b>${team.length}/${TEAM_MAX}</b><span>slots</span></div>
+    <div><b>${rolesCovered.join(" + ") || "-"}</b><span>roles</span></div>
+    <div><b>${farm ? "$" + fmt(farm) : "-"}</b><span>farm / tick</span></div></div>
+    <p class="dim">Buff channels: DMG [${chan.dmg.join("; ") || "—"}] · CD [${chan.cd.join("; ") || "—"}] · RNG [${chan.rng.join("; ") || "—"}]
+    <br>Note: same-channel buffs share one slot per tower — one winner each. Different channels multiply.</p></div>`;
+  // per-slot suggestions
+  team.forEach(n => {
+    const t = D.towers[n], roles = towerRoles(n);
+    h += `<div class="card"><h2>Slot: ${link("tower", n)} <span class="dim">(${roles.join("/")})</span></h2>`;
+    let anyUp = false;
+    const sug = (title, rank, scoreFn, cur, render) => {
+      const better = rank.filter(x => x !== n && scoreFn(x) > cur).slice(0, 3);
+      if (!better.length) return `<p>✅ Best in slot for <b>${esc(title)}</b>.</p>`;
+      anyUp = true;
+      return `<h3 class="sec">Better ${esc(title)}</h3><ul class="links">` + better.map(x =>
+        `<li>${link("tower", x)} — ${render(x)} <span class="dim">(${esc(firstSource(x))})</span></li>`).join("") + "</ul>";
+    };
+    if (roles.includes("DPS")) {
+      const cur = maxDPSof(n);
+      h += sug("DPS", dpsRank, maxDPSof, cur, x => `${dps(D.towers[x].max.damage, D.towers[x].max.cooldown)} max DPS (+${Math.round((maxDPSof(x) / cur - 1) * 100)}%)`);
+    }
+    if (roles.includes("Buffer")) {
+      const cur = buffScore(n);
+      h += sug("buffer", bufRank, buffScore, cur, x => {
+        const b = maxBuffs(x);
+        return `×${(buffScore(x)).toFixed(2)} combined (${b.DamageBuff ? "DMG×" + b.DamageBuff + " " : ""}${b.CooldownBuff !== 1 ? "CD×" + b.CooldownBuff + " " : ""}${b.RangeBuff ? "RNG×" + b.RangeBuff : ""})`;
+      });
+    }
+    if (roles.includes("Farm")) {
+      const cur = maxBuffs(n).FarmCash;
+      h += sug("farm", farmRank, x => maxBuffs(x).FarmCash, cur, x => "$" + fmt(maxBuffs(x).FarmCash) + "/tick");
+    }
+    if (roles.includes("Spawner") && !roles.includes("DPS")) {
+      const spawners = byRole("Spawner").sort((a, b) => maxDPSof(b) - maxDPSof(a));
+      h += sug("spawner (by DPS)", spawners, maxDPSof, maxDPSof(n), x => `${dps(D.towers[x].max.damage, D.towers[x].max.cooldown)} max DPS`);
+    }
+    if (!anyUp && roles.length) h += `<p class="dim">No upgrades found — already top of its roles.</p>`;
+    h += `</div>`;
+  });
+  return h;
+}
+
 /* ---------- router ---------- */
 function route() {
   const h = location.hash || "#/";
@@ -244,6 +426,7 @@ function route() {
   else if (page === "summon") html = vSummon();
   else if (page === "merchants") html = vMerchants();
   else if (page === "daily") html = vDaily();
+  else if (page === "builder") html = vBuilder();
   else if (page === "search") html = vSearch(decodeURIComponent(arg || ""));
   app.innerHTML = html;
   if (page === "towers" && !arg) {
@@ -251,6 +434,7 @@ function route() {
     document.getElementById("fRar").onchange = paintTowers;
     document.getElementById("fSort").onchange = paintTowers;
   }
+  if (page === "builder") paintBuilder();
 }
 searchBox.addEventListener("input", () => {
   const q = searchBox.value.trim();

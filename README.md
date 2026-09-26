@@ -1,5 +1,7 @@
 # The Game Wiki
 
+**Live site: https://filipinocollabemtech.github.io/the-game-wiki/**
+
 A connected, searchable game database — every entry links to its related entries:
 
 - **Tower →** stats, upgrades, DPS **→ How to get →** Crate/Chest drop chance **→** back to other towers
@@ -16,8 +18,15 @@ Live site: GitHub Pages (see repo settings).
 | `docs/` | The site. Static, zero dependencies — works on any host. |
 | `docs/index.html` | Shell: header search, tab nav, footer |
 | `docs/style.css` | Dark theme |
-| `docs/app.js` | SPA: hash routing (`#/tower/…`, `#/crate/…`), search, rarity filter, DPS sorting |
+| `docs/app.js` | SPA: hash routing (`#/tower/…`, `#/crate/…`), search, rarity filter, DPS sorting, **Team Builder** |
 | `docs/data.js` | Generated database: 182 towers, 16 crates, 9 chests, 14 items, 18 maps, 28 recipes, 5 merchants, 28-day login calendar, summon odds + pity |
+
+## Features
+
+- **Cross-linked entries** — tower → crate → tower, item → map → recipe, etc.
+- **How to get** on every tower (crates, chests, crafting, merchants, daily login, garden seeds, premium pool, summon odds) and every crate/chest (shop, merchants, dailies, gifts, events).
+- **Roles & skills** — every tower tagged Buffer / Farm / Spawner / DPS / Support with its skill Type and maxed aura values.
+- **Team Builder** (`#/builder`) — save your 6-tower build, hit Calculate: team DPS, buff-channel coverage, and per-slot better replacements with sources.
 
 ## Data model
 
